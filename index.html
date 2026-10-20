@@ -8,15 +8,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="fotos/1.webp"><link rel="preload" as="image" href="fotos/2.webp">
 <style>
 :root{
   --bg:#1d0b2b; --pink:#ff8fb8; --rose:#ff5d8f; --lilac:#d6b4ff;
-  --text:#fff5fa; --muted:rgba(255,240,248,.78);
+  --text:#fff5fa; --muted:rgba(255,240,248,.8);
   --glass:rgba(255,255,255,.08); --border:rgba(255,255,255,.18);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Quicksand,system-ui,sans-serif}
 body{user-select:none;-webkit-user-select:none;touch-action:manipulation}
+img{-webkit-user-drag:none;user-select:none}
 
 /* ---------- fundo fluido ---------- */
 .blobs{position:fixed;inset:0;overflow:hidden;z-index:0;background:radial-gradient(120% 80% at 50% 0%,#4a1650 0%,var(--bg) 65%)}
@@ -25,12 +27,16 @@ body{user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .b2{width:55vmax;height:55vmax;background:#8b5cf6;bottom:-25vmax;right:-20vmax;animation-duration:24s}
 .b3{width:40vmax;height:40vmax;background:#ffb38a;top:35%;left:25%;animation-duration:28s;opacity:.28}
 @keyframes drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(9vmax,7vmax) scale(1.15)}100%{transform:translate(-7vmax,11vmax) scale(.92)}}
-canvas#fx{position:fixed;inset:0;z-index:1;pointer-events:none}
+.weather{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity 1.6s ease}
+.sun{background:radial-gradient(80% 50% at 50% 0%,rgba(255,200,120,.55),transparent 70%)}
+.rainy{background:linear-gradient(180deg,rgba(20,30,70,.65),rgba(10,10,40,.55))}
+.weather.on{opacity:1}
+canvas#fx{position:fixed;inset:0;z-index:2;pointer-events:none}
 
 /* ---------- telas ---------- */
-main{position:relative;z-index:2;height:100%}
-.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;overflow-y:auto;
-  padding:max(28px,env(safe-area-inset-top)) 22px max(28px,env(safe-area-inset-bottom));text-align:center;
+main{position:relative;z-index:3;height:100%}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;overflow-y:auto;overflow-x:hidden;
+  padding:max(30px,env(safe-area-inset-top)) 20px max(30px,env(safe-area-inset-bottom));text-align:center;
   opacity:0;visibility:hidden;transform:translateY(34px) scale(.97);filter:blur(14px);
   transition:opacity .9s ease,transform 1s cubic-bezier(.2,.8,.2,1),filter .9s ease,visibility 0s 1s}
 .screen.active{opacity:1;visibility:visible;transform:none;filter:none;
@@ -44,7 +50,7 @@ h1{font-size:clamp(52px,15vw,76px)}
 h2{font-size:clamp(36px,10.5vw,50px);margin-bottom:20px}
 @keyframes shine{to{background-position:300% 0}}
 p{font-size:18px;line-height:1.65;color:var(--muted)}
-.small{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,220,235,.6)}
+.small{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,220,235,.62)}
 
 .card{background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   border-radius:28px;padding:28px 22px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.15)}
@@ -56,9 +62,17 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
 .btn.hidden{opacity:0;pointer-events:none;transform:translateY(14px);filter:blur(6px)}
 @keyframes btnflow{50%{background-position:100% 100%}}
 
-/* revelação suave de linhas */
-.line{opacity:0;transform:translateY(14px);filter:blur(10px);transition:all 1.4s cubic-bezier(.2,.8,.2,1)}
+.line{opacity:0;transform:translateY(14px);filter:blur(10px);transition:all 1.5s cubic-bezier(.2,.8,.2,1)}
 .line.show{opacity:1;transform:none;filter:none}
+
+/* botão de música */
+#mbtn{position:fixed;z-index:10;top:max(14px,env(safe-area-inset-top));right:14px;width:46px;height:46px;border-radius:50%;
+  border:1px solid var(--border);background:rgba(255,255,255,.1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  color:#fff;font-size:20px;display:grid;place-items:center;opacity:0;pointer-events:none;transition:opacity 1s;cursor:pointer}
+#mbtn.show{opacity:1;pointer-events:auto}
+#mbtn.on{animation:spin 6s linear infinite;box-shadow:0 0 22px rgba(255,143,184,.6)}
+@keyframes spin{to{transform:rotate(360deg)}}
+#ytwrap{position:fixed;left:0;bottom:0;width:200px;height:200px;opacity:0;pointer-events:none;z-index:-1}
 
 /* ---------- intro ---------- */
 .heartwrap{position:relative;width:150px;height:150px;margin:10px 0 34px;display:grid;place-items:center}
@@ -67,24 +81,38 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
 .ring:nth-child(2){animation-delay:.8s}.ring:nth-child(3){animation-delay:1.6s}
 @keyframes beat{0%,100%{transform:scale(1)}15%{transform:scale(1.14)}30%{transform:scale(1)}45%{transform:scale(1.1)}}
 @keyframes ring{from{transform:scale(.6);opacity:.9}to{transform:scale(1.8);opacity:0}}
-.tap{margin-top:36px;animation:breathe-o 2.4s ease-in-out infinite}
-@keyframes breathe-o{50%{opacity:.35}}
+.tap{margin-top:36px;animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.3}}
 
 /* ---------- quiz ---------- */
-.qtext{font-size:22px;font-weight:600;color:var(--text);line-height:1.45;margin:10px 0 22px;min-height:64px;transition:opacity .5s,filter .5s}
+.qtext{font-size:22px;font-weight:600;color:var(--text);line-height:1.45;margin:10px 0 22px;min-height:64px}
 .opts{display:flex;flex-direction:column;gap:12px}
 .opt{font:600 17px Quicksand,sans-serif;color:var(--text);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);
   border-radius:18px;padding:16px;cursor:pointer;opacity:0;animation:optIn .7s cubic-bezier(.2,.8,.2,1) forwards;transition:background .4s,border-color .4s,transform .2s,opacity .4s}
 .opt:active{transform:scale(.97)}
 .opt.right{background:linear-gradient(135deg,rgba(255,143,184,.55),rgba(214,180,255,.45));border-color:#ffc2d9;box-shadow:0 0 30px rgba(255,143,184,.5)}
 .opt.wrong{animation:shake .5s;opacity:.35}
-.opt:disabled{cursor:default}
 @keyframes optIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 .fb{min-height:52px;margin-top:18px;font-size:16px;color:#ffd6e6}
 .fb.pop{animation:fbpop .6s ease}
 @keyframes fbpop{from{opacity:0;transform:translateY(6px)}}
+#qcard{transition:opacity .5s,filter .5s}
 .fade{opacity:0;filter:blur(8px)}
+
+/* ---------- linha do tempo ---------- */
+.timeline{position:relative;width:100%;text-align:left;padding-left:34px}
+.tl-bar{position:absolute;left:11px;top:6px;bottom:6px;width:2px;background:linear-gradient(#ffc2d9,#d6b4ff);transform-origin:top;transform:scaleY(0);transition:transform 7s linear}
+.tl-bar.go{transform:scaleY(1)}
+.tl-item{position:relative;margin-bottom:22px;opacity:0;transform:translateX(18px);filter:blur(8px);transition:all 1.2s cubic-bezier(.2,.8,.2,1)}
+.tl-item.show{opacity:1;transform:none;filter:none}
+.tl-item::before{content:"";position:absolute;left:-30px;top:4px;width:16px;height:16px;border-radius:50%;background:#ffc2d9;box-shadow:0 0 16px #ff8fb8}
+.tl-item.star::before{background:#fff;box-shadow:0 0 24px 6px #ff5d8f;animation:beat 1.6s infinite}
+.tl-item b{display:block;font-family:'Dancing Script',cursive;font-size:28px;color:#ffd1e3;font-weight:700;margin-bottom:2px}
+.tl-item p{font-size:16px;line-height:1.55}
+
+/* ---------- certeza ---------- */
+.ela{font-family:'Dancing Script',cursive;font-size:clamp(60px,18vw,88px);color:#fff;text-shadow:0 0 30px #ff5d8f,0 0 60px #ff8fb8;margin:10px 0}
 
 /* ---------- conversas ---------- */
 .chat{display:flex;flex-direction:column;gap:10px;align-items:flex-end;min-height:300px;text-align:left}
@@ -96,20 +124,35 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
 .typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
 @keyframes dot{50%{transform:translateY(-5px);opacity:1}}
 
-/* ---------- paz (respiração) ---------- */
+/* ---------- fotos (polaroids) ---------- */
+.stack{position:relative;width:270px;height:370px;margin:4px 0 10px}
+.polaroid{position:absolute;inset:0;background:#fffaf5;border-radius:6px;padding:12px 12px 56px;box-shadow:0 18px 40px rgba(0,0,0,.45);
+  transition:transform .8s cubic-bezier(.2,.8,.2,1),opacity .8s;touch-action:none;cursor:grab}
+.polaroid img{width:100%;height:100%;object-fit:cover;border-radius:2px;display:block;pointer-events:none}
+.polaroid span{position:absolute;left:0;right:0;bottom:12px;font-family:'Dancing Script',cursive;font-size:24px;color:#5a2347;text-align:center}
+.polaroid.enter{opacity:0;transform:translateY(60px) rotate(0) scale(.8)}
+.polaroid.dragging{transition:none}
+
+/* ---------- paz ---------- */
 .orbwrap{position:relative;width:230px;height:230px;display:grid;place-items:center;margin:26px 0}
-.orb{width:150px;height:150px;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%,#fff 0%,#ffd1e3 18%,#ff8fb8 45%,#a66cff 85%);
+.orb{width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0%,#ffd1e3 18%,#ff8fb8 45%,#a66cff 85%);
   box-shadow:0 0 60px rgba(255,143,184,.7),0 0 120px rgba(166,108,255,.5);transform:scale(.75)}
 .orb.go{animation:breathe 8s ease-in-out infinite}
-.orbwrap::before,.orbwrap::after{content:"";position:absolute;inset:0;border-radius:50%;border:1px solid rgba(255,200,225,.35)}
-.orb.go~.halo{animation:halo 8s ease-in-out infinite}
 .halo{position:absolute;inset:-10px;border-radius:50%;background:radial-gradient(circle,rgba(255,143,184,.25),transparent 65%);transform:scale(.7)}
+.orb.go~.halo{animation:halo 8s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:scale(.75)}50%{transform:scale(1.2)}}
 @keyframes halo{0%,100%{transform:scale(.7);opacity:.4}50%{transform:scale(1.15);opacity:1}}
-.blabel{font-family:'Dancing Script',cursive;font-size:34px;color:#ffe3ef;min-height:46px;transition:opacity .8s,filter .8s}
+.blabel{font-family:'Dancing Script',cursive;font-size:34px;color:#ffe3ef;min-height:46px;transition:opacity .6s,filter .6s}
 
-/* ---------- motivos (cartão que gira) ---------- */
+/* ---------- segurar o coração ---------- */
+.holdwrap{position:relative;width:220px;height:220px;margin:26px 0 10px;display:grid;place-items:center;touch-action:none;cursor:pointer}
+.holdwrap svg.ringsvg{position:absolute;inset:0;transform:rotate(-90deg)}
+.holdheart{width:110px;height:110px;filter:drop-shadow(0 0 20px rgba(255,93,143,.8));transition:transform .15s}
+.holdheart.thump{animation:thump .3s ease}
+@keyframes thump{40%{scale:1.15}}
+.holdhint{min-height:28px;font-size:16px;color:#ffd6e6;transition:opacity .4s}
+
+/* ---------- motivos ---------- */
 .flip{width:100%;max-width:340px;height:250px;perspective:1200px;cursor:pointer;margin:6px 0 16px}
 .flip-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform 1s cubic-bezier(.3,1.4,.4,1)}
 .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:26px;display:grid;place-items:center;padding:26px;
@@ -119,18 +162,40 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
 .face.back{transform:rotateY(180deg)}
 .count{font-size:14px;color:rgba(255,220,235,.65)}
 
+/* ---------- dias bons / ruins ---------- */
+.seg{display:flex;gap:8px;background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:999px;padding:5px;margin-bottom:18px}
+.seg button{flex:1;white-space:nowrap;font:700 14px Quicksand,sans-serif;color:#fff;background:transparent;border:0;border-radius:999px;padding:12px 12px;cursor:pointer;transition:background .5s,color .5s}
+.seg button.sel{background:linear-gradient(135deg,#ffe0ec,#ff8fb8);color:#3a0f2c}
+.dayicon{font-size:64px;margin-bottom:8px;transition:transform .8s cubic-bezier(.3,1.5,.4,1)}
+#dayText{transition:opacity .6s,filter .6s;min-height:170px}
+
+/* ---------- estrelas ---------- */
+.sky{width:100%;max-width:340px;aspect-ratio:300/280;cursor:pointer}
+.sky circle.st{fill:#fff;opacity:.35;transition:opacity .5s,r .5s}
+.sky circle.st.lit{opacity:1;filter:url(#glow)}
+.sky circle.st.next{animation:twk 1.2s infinite}
+@keyframes twk{50%{opacity:1}}
+.sky polyline{fill:none;stroke:#ffc2d9;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:url(#glow)}
+.sky polygon{fill:rgba(255,93,143,.25);opacity:0;transition:opacity 2s}
+.sky text{font-family:'Dancing Script',cursive;font-size:44px;fill:#fff;opacity:0;transition:opacity 2s}
+
 /* ---------- sim / não ---------- */
 .yn{position:relative;width:100%;height:240px;margin-top:20px}
-.yn .btn{position:absolute;margin:0;transition:left .35s cubic-bezier(.2,.8,.2,1.2),top .35s cubic-bezier(.2,.8,.2,1.2),transform .35s}
+.yn .btn{position:absolute;margin:0;transition:left .35s cubic-bezier(.2,.8,.2,1.2),top .35s cubic-bezier(.2,.8,.2,1.2),transform .35s,opacity .5s}
 #yes{left:calc(50% - 130px);top:20px}
 #no{left:calc(50% + 20px);top:20px;background:rgba(255,255,255,.12);color:#fff;box-shadow:none;border:1px solid rgba(255,255,255,.25);animation:none}
 
 /* ---------- final ---------- */
+.heartpic{width:210px;height:190px;margin:4px 0 10px;filter:drop-shadow(0 0 30px rgba(255,93,143,.7));animation:beat 2.4s ease-in-out infinite}
+.heartpic img{width:100%;height:100%;object-fit:cover;object-position:50% 30%;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E") center/contain no-repeat}
 .letter{text-align:left}
 .letter p{color:#ffeef5;margin-bottom:16px;font-size:18px}
 .w{display:inline-block;opacity:0;filter:blur(8px);transform:translateY(8px);animation:wIn .9s ease forwards}
 @keyframes wIn{to{opacity:1;filter:none;transform:none}}
-.sign{font-family:'Dancing Script',cursive;font-size:30px;color:#ffc2d9;text-align:right;margin-top:6px}
+.sign{font-family:'Dancing Script',cursive;font-size:32px;color:#ffc2d9;text-align:right;margin-top:6px}
+.forever{font-family:'Dancing Script',cursive;font-size:34px;color:#fff;text-shadow:0 0 20px #ff5d8f;margin-top:22px;min-height:44px}
 
 @media (prefers-reduced-motion:reduce){.blob,.orb.go,h1,h2{animation:none}}
 </style>
@@ -138,10 +203,14 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
 <body>
 
 <div class="blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="weather sun" id="sunFx"></div>
+<div class="weather rainy" id="rainFx"></div>
 <canvas id="fx"></canvas>
+<button id="mbtn" aria-label="música">🎵</button>
+<div id="ytwrap"><div id="yt"></div></div>
 
 <main>
-  <!-- 0. Intro -->
+  <!-- intro -->
   <section class="screen active" data-id="intro">
     <div class="inner">
       <div class="heartwrap">
@@ -150,12 +219,12 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
           <path fill="url(#hg)" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
       </div>
       <h1 id="hiName">Oi, Jannifer</h1>
-      <p style="margin-top:14px">Eu fiz uma coisinha pra você.<br>Vai com calma, sem pressa. ✨</p>
+      <p style="margin-top:14px">Eu fiz uma coisinha pra você.<br>Aumenta o som 🔊 e vai com calma. ✨</p>
       <p class="small tap">toque na tela para começar</p>
     </div>
   </section>
 
-  <!-- 1. Quiz -->
+  <!-- quiz -->
   <section class="screen" data-id="quiz">
     <div class="inner">
       <h2>Antes, umas perguntinhas</h2>
@@ -168,21 +237,31 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
     </div>
   </section>
 
-  <!-- 2. Shopping -->
-  <section class="screen" data-id="shopping">
+  <!-- linha do tempo -->
+  <section class="screen" data-id="timeline">
     <div class="inner">
-      <h2>Aquele dia no shopping</h2>
+      <h2>A nossa história</h2>
       <div class="card">
-        <p class="line">Era pra ser só mais um dia comum…</p>
-        <p class="line" style="margin-top:14px">até eu te ver.</p>
-        <p class="line" style="margin-top:14px">Eu nem sabia ainda, mas ali começava uma das coisas mais bonitas que já aconteceram comigo.</p>
-        <p class="line" style="margin-top:14px;color:#ffd1e3">Desde então, você mora nos meus pensamentos. 💭</p>
+        <div class="timeline" id="timeline"><div class="tl-bar" id="tlbar"></div></div>
       </div>
       <button class="btn hidden" data-next>continuar ✨</button>
     </div>
   </section>
 
-  <!-- 3. Conversas -->
+  <!-- certeza (shopping) -->
+  <section class="screen" data-id="certeza">
+    <div class="inner">
+      <h2>O dia em que eu tive certeza</h2>
+      <p class="line">A gente já vinha se conhecendo há um tempo…</p>
+      <p class="line" style="margin-top:14px">mas naquele dia, no shopping, quando eu te vi pessoalmente pela primeira vez…</p>
+      <p class="line" style="margin-top:14px">alguma coisa dentro de mim falou bem baixinho:</p>
+      <div class="line ela">“é ela.”</div>
+      <p class="line" style="color:#ffe3ef">Ali eu tive certeza de que estava conhecendo a mulher da minha vida. 💗</p>
+      <button class="btn hidden" data-next>continuar ✨</button>
+    </div>
+  </section>
+
+  <!-- conversas -->
   <section class="screen" data-id="chat">
     <div class="inner">
       <h2>Nossas conversas</h2>
@@ -191,7 +270,17 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
     </div>
   </section>
 
-  <!-- 4. Paz -->
+  <!-- fotos -->
+  <section class="screen" data-id="photos">
+    <div class="inner">
+      <h2>Nós dois</h2>
+      <div class="stack" id="stack"></div>
+      <p class="small" id="photoHint">arraste ou toque na foto</p>
+      <button class="btn hidden" data-next>continuar ✨</button>
+    </div>
+  </section>
+
+  <!-- paz -->
   <section class="screen" data-id="peace">
     <div class="inner">
       <h2>Perto de você…</h2>
@@ -203,7 +292,26 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
     </div>
   </section>
 
-  <!-- 5. Motivos -->
+  <!-- segurar o coração -->
+  <section class="screen" data-id="hold">
+    <div class="inner">
+      <h2>Segura o meu coração</h2>
+      <p>Coloca o dedo no coração e não solta…</p>
+      <div class="holdwrap" id="holdwrap">
+        <svg class="ringsvg" viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r="96" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="8"/>
+          <circle id="holdring" cx="110" cy="110" r="96" fill="none" stroke="url(#rg)" stroke-width="8" stroke-linecap="round" stroke-dasharray="603" stroke-dashoffset="603"/>
+          <defs><linearGradient id="rg"><stop offset="0" stop-color="#ffd1e3"/><stop offset="1" stop-color="#ff5d8f"/></linearGradient></defs>
+        </svg>
+        <svg class="holdheart" id="holdheart" viewBox="0 0 24 24"><path fill="url(#hg)" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      </div>
+      <div class="holdhint" id="holdhint"></div>
+      <p class="line" id="holdEnd">Sentiu? 🥹<br>É assim que ele bate quando eu penso em você.</p>
+      <button class="btn hidden" data-next>continuar ✨</button>
+    </div>
+  </section>
+
+  <!-- motivos -->
   <section class="screen" data-id="reasons">
     <div class="inner">
       <h2>Coisas que eu amo em você</h2>
@@ -218,7 +326,35 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
     </div>
   </section>
 
-  <!-- 6. Pergunta -->
+  <!-- dias bons e ruins -->
+  <section class="screen" data-id="days">
+    <div class="inner">
+      <h2>Em todos os dias</h2>
+      <div class="seg"><button id="goodBtn">☀️ Dias bons</button><button id="badBtn">🌧️ Dias difíceis</button></div>
+      <div class="card">
+        <div class="dayicon" id="dayIcon">💗</div>
+        <p id="dayText">Escolhe um dos dois aí em cima…</p>
+      </div>
+      <button class="btn hidden" data-next>continuar ✨</button>
+    </div>
+  </section>
+
+  <!-- estrelas -->
+  <section class="screen" data-id="stars">
+    <div class="inner">
+      <h2>Liga as estrelas</h2>
+      <p id="starHint">Toca no céu, estrela por estrela ✨</p>
+      <svg class="sky" id="sky" viewBox="0 0 300 280">
+        <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        <polygon id="spoly"/><polyline id="sline"/><g id="sdots"></g>
+        <text id="stext" x="150" y="138" text-anchor="middle">J ♡ K</text>
+      </svg>
+      <p class="line" id="starEnd">Entre bilhões de estrelas,<br>meu coração escolheu você.</p>
+      <button class="btn hidden" data-next>continuar ✨</button>
+    </div>
+  </section>
+
+  <!-- pergunta -->
   <section class="screen" data-id="ask">
     <div class="inner">
       <h2>Uma última pergunta</h2>
@@ -231,34 +367,39 @@ p{font-size:18px;line-height:1.65;color:var(--muted)}
     </div>
   </section>
 
-  <!-- 7. Final -->
+  <!-- final -->
   <section class="screen" data-id="final">
     <div class="inner">
-      <h1 style="margin-bottom:18px">Jannifer</h1>
+      <div class="heartpic"><img src="fotos/2.webp" alt="nós dois"></div>
       <div class="card letter" id="letter"></div>
-      <button class="btn hidden" id="again">ver de novo ↺</button>
+      <button class="btn hidden" id="promise">Guardar essa promessa 💗</button>
+      <div class="forever" id="forever"></div>
+      <button class="btn hidden" id="again" style="margin-top:14px">ver de novo ↺</button>
     </div>
   </section>
 </main>
 
 <script>
-/* ============ PERSONALIZE AQUI ============ */
+/* ================= PERSONALIZE AQUI ================= */
 const CONFIG = {
   nome: "Jannifer",
-  assinatura: "Com todo o meu carinho, — [seu nome]",
-  musica: "" // opcional: link ou nome de um .mp3 na mesma pasta, ex: "musica.mp3"
+  meuNome: "Kauã",
+  youtubeId: "2Vv-BfVoq4g",  // Ed Sheeran - Perfect
+  inicio: 0,                 // segundo em que a música começa
+  volume: 22,                // 0 a 100 (baixinho)
+  musica: ""                 // opcional: um .mp3 seu na pasta (ex: "perfect.mp3") — se preencher, usa ele no lugar do YouTube
 };
 
 const PERGUNTAS = [
-  { q: "Onde foi a primeira vez que a gente se viu?",
+  { q: "Onde a gente se viu pessoalmente pela primeira vez?",
     o: ["Em um sonho meu", "No shopping 🛍️", "Na fila do pão"], c: 1,
-    ok: "Isso! O dia em que tudo começou… e eu nem sabia ✨",
-    no: "Quase! Nos meus sonhos você só apareceu depois 😌" },
+    ok: "Isso! O dia em que eu tive certeza ✨",
+    no: "Quase! Nos meus sonhos você aparece todo dia, mas não foi lá 😌" },
   { q: "Como eu me sinto quando estou perto de você?",
     o: ["Em paz 🕊️", "Feliz 😊", "As duas coisas, sempre 💗"], c: 2,
     ok: "Exatamente. Paz e felicidade, tudo junto 🥹",
     no: "Também… mas tem mais coisa aí 👀" },
-  { q: "Qual é uma das melhores partes do meu dia?",
+  { q: "Qual é a melhor parte do meu dia?",
     o: ["Dormir 😴", "Conversar com você 💬", "Comer 🍕"], c: 1,
     ok: "Sempre. Nossas conversas são meu lugar favorito 💬",
     no: "Hmm… é bom, mas não chega nem perto 😂" },
@@ -266,6 +407,13 @@ const PERGUNTAS = [
     o: ["Um pouquinho", "Bastante", "Não cabe no universo 🌌"], c: 2,
     ok: "Nem no universo, nem em lugar nenhum 💫",
     no: "Pouco?? Jamais 😤 tenta de novo" }
+];
+
+const HISTORIA = [
+  { t: "Antes", d: "A gente foi se conhecendo aos pouquinhos, conversa por conversa… e sem perceber você virou parte do meu dia." },
+  { t: "O shopping", d: "A primeira vez que eu te vi pessoalmente. O dia que mudou tudo.", star: true },
+  { t: "Hoje", d: "Um carinho que só cresce, e uma paz que eu só sinto perto de você." },
+  { t: "Daqui pra frente", d: "Tudo o que a gente ainda vai viver… e eu quero viver cada pedacinho com você. ✨" }
 ];
 
 const MENSAGENS = [
@@ -276,13 +424,20 @@ const MENSAGENS = [
   "obrigado por cada uma delas 💗"
 ];
 
+const FOTOS = [
+  { src: "fotos/1.webp", legenda: "meu lugar favorito 💞" },
+  { src: "fotos/2.webp", legenda: "a gente combina, né? 🧡" },
+  { src: "fotos/3.webp", legenda: "você me deixa bobo 😝" },
+  { src: "fotos/4.webp", legenda: "nossa luz favorita ❤️" }
+];
+
 const MOTIVOS = [
   "O jeito que você sorri.",
   "Como suas conversas me acalmam, até nos dias difíceis.",
   "A paz que eu sinto só de estar perto de você.",
   "O seu jeitinho único de ver as coisas.",
   "Como você transforma momentos simples em especiais.",
-  "A sua voz. 🎶",
+  "Esse seu cabelo cacheado lindo. 🌀",
   "Que desde aquele dia no shopping você não sai da minha cabeça.",
   "Que com você eu posso ser eu mesmo.",
   "Como o tempo voa quando a gente conversa.",
@@ -290,73 +445,165 @@ const MOTIVOS = [
   "Simplesmente… você. Inteirinha. 💗"
 ];
 
+const DIAS = {
+  bom: { icon: "☀️", txt: "Nos dias bons, eu quero estar do seu lado comemorando cada conquista sua, rindo das coisas mais bobas e colecionando memórias com você." },
+  ruim: { icon: "☂️", txt: "Nos dias difíceis, eu vou estar aqui. Pra te ouvir, te abraçar, segurar sua mão e te lembrar do quanto você é forte. Você nunca vai passar por nada sozinha." }
+};
+
 const CARTA = [
-  "Eu sei que a gente ainda está no começo da nossa história.",
-  "Mas eu precisava que você soubesse que o carinho que eu sinto por você é enorme — maior do que eu consigo colocar em palavras (e olha que eu tentei até em código 😅).",
-  "Perto de você eu me sinto feliz. Em paz. Como se tudo estivesse exatamente no lugar certo.",
-  "Obrigado por cada conversa, cada risada, e por ser do jeitinho que você é.",
-  "Seja lá pra onde essa história for, eu quero muito estar nela com você. 💗"
+  "Jannifer,",
+  "Eu sei que a gente ainda está no começo. Mas eu não tenho dúvida nenhuma do que eu sinto por você.",
+  "Eu quero fazer de você a mulher mais feliz do mundo. Não só com palavras, mas todos os dias, nas pequenas coisas: num bom dia carinhoso, numa conversa até tarde, num abraço quando você mais precisar.",
+  "Nos dias bons, eu vou estar do seu lado. Nos dias ruins, mais ainda. Em todos os momentos.",
+  "Você me traz uma paz que eu nunca tinha sentido, e tudo o que eu quero é te devolver isso em dobro.",
+  "Obrigado por existir do jeitinho que você é."
 ];
-/* ========================================== */
+/* ==================================================== */
 
 const $ = s => document.querySelector(s);
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const pick = a => a[Math.floor(Math.random() * a.length)];
+const vib = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 $('#hiName').textContent = 'Oi, ' + CONFIG.nome;
 document.title = 'Para ' + CONFIG.nome + ' 💗';
 
-/* ---------- partículas (fundo + explosões) ---------- */
+/* ================= SONS (gerados na hora, sem arquivos) ================= */
+let ac, master, soundOn = true;
+function actx() {
+  if (!ac) {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = .55; master.connect(ac.destination);
+  }
+  if (ac.state === 'suspended') ac.resume();
+  return ac;
+}
+function tone(f, { d = .4, type = 'sine', v = .15, at = 0, slide = 0 } = {}) {
+  if (!soundOn) return;
+  const c = actx(), t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(f * slide, t + d);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .015);
+  g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g).connect(master); o.start(t); o.stop(t + d + .05);
+}
+function noise({ d = .8, v = .06, f1 = 400, f2 = 2000, at = 0 } = {}) {
+  if (!soundOn) return;
+  const c = actx(), t = c.currentTime + at, len = Math.floor(c.sampleRate * d);
+  const buf = c.createBuffer(1, len, c.sampleRate), data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = buf; f.type = 'bandpass'; f.Q.value = 1.2;
+  f.frequency.setValueAtTime(f1, t); f.frequency.exponentialRampToValueAtTime(f2, t + d);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + d * .4); g.gain.linearRampToValueAtTime(0, t + d);
+  s.connect(f).connect(g).connect(master); s.start(t);
+}
+const PENTA = [392, 440, 523.25, 587.33, 659.25];
+const sfx = {
+  tap: () => tone(1800 + Math.random() * 1400, { d: .15, v: .025 }),
+  pop: () => tone(480, { d: .16, v: .09, slide: 1.9 }),
+  chime: () => [1046.5, 1318.5, 1568].forEach((f, i) => tone(f, { d: 1.3, v: .07, at: i * .09, type: 'triangle' })),
+  wrong: () => tone(330, { d: .35, v: .07, slide: .7, type: 'triangle' }),
+  whoosh: () => noise({ d: .9, v: .045, f1: 300, f2: 2600 }),
+  beat: () => { tone(72, { d: .18, v: .55, slide: .6 }); tone(62, { d: .2, v: .4, slide: .6, at: .17 }); },
+  magic: () => [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568].forEach((f, i) => tone(f, { d: 1.6, v: .06, at: i * .08 })),
+  note: i => { const f = PENTA[i % 5] * Math.pow(2, Math.floor(i / 5)); tone(f, { d: 1.6, v: .07 }); tone(f * 2, { d: .7, v: .015 }); },
+  boom: () => { noise({ d: 1.1, v: .1, f1: 1800, f2: 150 }); tone(95, { d: .6, v: .2, slide: .5 }); },
+  rain: () => noise({ d: 2.5, v: .05, f1: 3000, f2: 2500 }),
+  flip: () => noise({ d: .35, v: .05, f1: 800, f2: 3500 })
+};
+
+/* ================= MÚSICA ================= */
+let yt, ytReady = false, mp3, musicOn = false, wantMusic = false;
+if (!CONFIG.musica) {
+  window.onYouTubeIframeAPIReady = () => {
+    yt = new YT.Player('yt', {
+      width: 200, height: 200, videoId: CONFIG.youtubeId,
+      playerVars: { controls: 0, playsinline: 1, loop: 1, playlist: CONFIG.youtubeId, start: CONFIG.inicio, rel: 0 },
+      events: { onReady: () => { ytReady = true; if (wantMusic) playMusic(); } }
+    });
+  };
+  const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.append(s);
+}
+function fadeTo(target, set, get) {
+  const iv = setInterval(() => { const v = get(); const n = v + Math.sign(target - v) * 1.5;
+    if (Math.abs(target - v) <= 1.5) { set(target); clearInterval(iv); } else set(n); }, 120);
+}
+function playMusic() {
+  wantMusic = true; musicOn = true;
+  $('#mbtn').classList.add('show', 'on');
+  if (CONFIG.musica) {
+    if (!mp3) { mp3 = new Audio(CONFIG.musica); mp3.loop = true; mp3.volume = 0; }
+    mp3.play().catch(() => {});
+    fadeTo(CONFIG.volume, v => mp3.volume = v / 100, () => mp3.volume * 100);
+  } else if (ytReady) {
+    let vol = 0; yt.setVolume(0); yt.playVideo();
+    fadeTo(CONFIG.volume, v => { vol = v; yt.setVolume(v); }, () => vol);
+  }
+}
+function pauseMusic() {
+  musicOn = false; $('#mbtn').classList.remove('on');
+  if (mp3) mp3.pause(); if (ytReady) yt.pauseVideo();
+}
+$('#mbtn').addEventListener('click', e => {
+  e.stopPropagation();
+  if (musicOn) { pauseMusic(); soundOn = false; } else { soundOn = true; playMusic(); }
+});
+
+/* ================= PARTÍCULAS ================= */
 const cv = $('#fx'), cx = cv.getContext('2d');
-let W, H;
+let W, H, raining = false;
 function resize() {
   const d = Math.min(devicePixelRatio || 1, 2);
   W = innerWidth; H = innerHeight;
-  cv.width = W * d; cv.height = H * d;
-  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  cv.width = W * d; cv.height = H * d; cv.style.width = W + 'px'; cv.style.height = H + 'px';
   cx.setTransform(d, 0, 0, d, 0, 0);
 }
 resize(); addEventListener('resize', resize);
-
 const COLORS = ['#ff8fb8', '#ffc2d9', '#e0b3ff', '#ffd0b5', '#ff5d8f', '#ffffff'];
-const amb = [], fx = [];
+const amb = [], fx = [], drops = [];
 function newAmb(init) {
   return { x: Math.random() * W, y: init ? Math.random() * H : H + 30, r: 2 + Math.random() * 9,
     heart: Math.random() < .45, sp: .15 + Math.random() * .45, ph: Math.random() * 6.28,
     sw: .3 + Math.random() * .8, a: .15 + Math.random() * .45, c: pick(COLORS), rot: (Math.random() - .5) * .6 };
 }
 for (let i = 0; i < 36; i++) amb.push(newAmb(true));
-
 function heart(x, y, s, rot, c, a) {
   cx.save(); cx.translate(x, y); cx.rotate(rot); cx.scale(s / 12, s / 12);
   cx.globalAlpha = a; cx.fillStyle = c;
   cx.beginPath(); cx.moveTo(0, 4);
-  cx.bezierCurveTo(-9, -3, -5, -11, 0, -5.5);
-  cx.bezierCurveTo(5, -11, 9, -3, 0, 4);
+  cx.bezierCurveTo(-9, -3, -5, -11, 0, -5.5); cx.bezierCurveTo(5, -11, 9, -3, 0, 4);
   cx.fill(); cx.restore();
 }
 function glow(x, y, r, c, a) {
   const g = cx.createRadialGradient(x, y, 0, x, y, r * 2.2);
   g.addColorStop(0, c); g.addColorStop(1, 'transparent');
-  cx.globalAlpha = a; cx.fillStyle = g;
-  cx.beginPath(); cx.arc(x, y, r * 2.2, 0, 6.29); cx.fill();
+  cx.globalAlpha = a; cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, r * 2.2, 0, 6.29); cx.fill();
 }
-function burst(x, y, n = 32, power = 1) {
+function burst(x, y, n = 32, power = 1, colors = COLORS) {
   for (let i = 0; i < n; i++) {
     const ang = Math.random() * 6.28, sp = (2 + Math.random() * 6) * power;
-    fx.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 3, s: 7 + Math.random() * 11,
-      life: 1, decay: .007 + Math.random() * .01, c: pick(COLORS), rot: Math.random() - .5,
-      vr: (Math.random() - .5) * .15, heart: Math.random() < .8 });
+    fx.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 3, s: 7 + Math.random() * 11, life: 1,
+      decay: .007 + Math.random() * .01, c: pick(colors), rot: Math.random() - .5, vr: (Math.random() - .5) * .15, heart: Math.random() < .8 });
   }
+}
+function firework(x, y) {
+  const cols = pick([['#ff5d8f', '#ffc2d9', '#fff'], ['#d6b4ff', '#fff', '#ff8fb8'], ['#ffd0b5', '#ff8fb8', '#fff']]);
+  for (let i = 0; i < 60; i++) {
+    const ang = (i / 60) * 6.28, sp = 4 + Math.random() * 2.5;
+    fx.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, s: 2.5 + Math.random() * 2, life: 1, decay: .012,
+      c: pick(cols), rot: 0, vr: 0, heart: false, light: true });
+  }
+  sfx.boom(); vib(40);
 }
 function sparkle(x, y) {
   for (let i = 0; i < 9; i++) {
     const ang = Math.random() * 6.28, sp = 1 + Math.random() * 2.5;
-    fx.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, s: 2 + Math.random() * 3,
-      life: 1, decay: .02 + Math.random() * .02, c: pick(COLORS), rot: 0, vr: 0, heart: false, light: true });
+    fx.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, s: 2 + Math.random() * 3, life: 1,
+      decay: .02 + Math.random() * .02, c: pick(COLORS), rot: 0, vr: 0, heart: false, light: true });
   }
 }
-function rain(n = 60) {
-  for (let i = 0; i < n; i++) setTimeout(() => fx.push({ x: Math.random() * W, y: -20, vx: (Math.random() - .5),
+function rainHearts(n = 60) {
+  for (let i = 0; i < n; i++) setTimeout(() => fx.push({ x: Math.random() * W, y: -20, vx: Math.random() - .5,
     vy: 1 + Math.random() * 2, s: 8 + Math.random() * 12, life: 1, decay: .003, c: pick(COLORS),
     rot: Math.random() - .5, vr: (Math.random() - .5) * .05, heart: true, float: true }), i * 60);
 }
@@ -365,13 +612,19 @@ function loop(t) {
   for (const p of amb) {
     p.y -= p.sp; p.x += Math.sin(t / 1700 + p.ph) * p.sw * .35;
     if (p.y < -30) Object.assign(p, newAmb(false));
-    const tw = p.a * (.7 + .3 * Math.sin(t / 900 + p.ph));
+    const tw = p.a * (.7 + .3 * Math.sin(t / 900 + p.ph)) * (raining ? .3 : 1);
     p.heart ? heart(p.x, p.y, p.r * 1.7, p.rot + Math.sin(t / 2000 + p.ph) * .2, p.c, tw) : glow(p.x, p.y, p.r, p.c, tw);
+  }
+  if (raining) for (let k = 0; k < 4; k++) drops.push({ x: Math.random() * (W + 100), y: -20, v: 9 + Math.random() * 6, l: 12 + Math.random() * 14 });
+  cx.strokeStyle = '#cfe0ff'; cx.lineWidth = 1.2;
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i]; d.y += d.v; d.x -= d.v * .18;
+    if (d.y > H + 20) { drops.splice(i, 1); continue; }
+    cx.globalAlpha = .35; cx.beginPath(); cx.moveTo(d.x, d.y); cx.lineTo(d.x + d.l * .18, d.y - d.l); cx.stroke();
   }
   for (let i = fx.length - 1; i >= 0; i--) {
     const p = fx[i];
-    if (!p.float) { p.vy += p.light ? .02 : .1; p.vx *= .985; p.vy *= .985; }
-    else p.x += Math.sin(t / 600 + i) * .4;
+    if (!p.float) { p.vy += p.light ? .03 : .1; p.vx *= .985; p.vy *= .985; } else p.x += Math.sin(t / 600 + i) * .4;
     p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= p.decay;
     if (p.life <= 0 || p.y > H + 40) { fx.splice(i, 1); continue; }
     p.heart ? heart(p.x, p.y, p.s, p.rot, p.c, Math.min(1, p.life * 1.4)) : glow(p.x, p.y, p.s, p.c, p.life);
@@ -380,54 +633,50 @@ function loop(t) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-document.addEventListener('pointerdown', e => sparkle(e.clientX, e.clientY));
+document.addEventListener('pointerdown', e => { sparkle(e.clientX, e.clientY); if (ac) sfx.tap(); });
 
-/* ---------- navegação ---------- */
+/* ================= NAVEGAÇÃO ================= */
 const screens = [...document.querySelectorAll('.screen')];
 let cur = 0;
 const enter = {};
+function setWeather(w) {
+  $('#sunFx').classList.toggle('on', w === 'sun');
+  $('#rainFx').classList.toggle('on', w === 'rain');
+  raining = w === 'rain';
+}
 function go(i) {
   screens[cur].classList.remove('active');
-  cur = i;
+  cur = i; setWeather(null); sfx.whoosh();
   screens[i].classList.add('active');
   const fn = enter[screens[i].dataset.id];
   if (fn) setTimeout(fn, 900);
 }
 const next = () => go(cur + 1);
 document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', e => {
-  burst(e.clientX, e.clientY, 18, .7); next();
+  burst(e.clientX, e.clientY, 18, .7); sfx.pop(); next();
 }));
-const showBtn = scr => scr.querySelector('.btn.hidden')?.classList.remove('hidden');
-
-/* música opcional */
-let audio;
-function startMusic() {
-  if (!CONFIG.musica || audio) return;
-  audio = new Audio(CONFIG.musica); audio.loop = true; audio.volume = 0;
-  audio.play().then(() => {
-    const iv = setInterval(() => { audio.volume = Math.min(.6, audio.volume + .03); if (audio.volume >= .6) clearInterval(iv); }, 150);
-  }).catch(() => {});
+const showBtn = scr => { const b = scr.querySelector('.btn.hidden[data-next]'); if (b) { b.classList.remove('hidden'); sfx.chime(); } };
+async function revealLines(scr, gap = 2000) {
+  for (const l of scr.querySelectorAll('.line')) { l.classList.add('show'); await wait(gap); }
 }
 
-/* 0. intro */
+/* intro */
 screens[0].addEventListener('click', e => {
   if (cur !== 0) return;
-  startMusic(); burst(e.clientX, e.clientY, 40, 1.1); next();
+  actx(); playMusic(); sfx.magic(); burst(e.clientX, e.clientY, 40, 1.1); vib(30); next();
 });
 
-/* 1. quiz */
+/* quiz */
 let qi = 0;
 function renderQ() {
   const q = PERGUNTAS[qi];
   $('#qcount').textContent = `${qi + 1} de ${PERGUNTAS.length}`;
-  $('#qtext').textContent = q.q;
-  $('#fb').textContent = '';
+  $('#qtext').textContent = q.q; $('#fb').textContent = '';
   const box = $('#opts'); box.innerHTML = '';
   q.o.forEach((t, i) => {
     const b = document.createElement('button');
     b.className = 'opt'; b.textContent = t; b.style.animationDelay = (.15 + i * .13) + 's';
-    b.onclick = e => answer(i, b, e);
-    box.append(b);
+    b.onclick = e => answer(i, b, e); box.append(b);
   });
 }
 async function answer(i, b, e) {
@@ -435,85 +684,238 @@ async function answer(i, b, e) {
   fb.classList.remove('pop'); void fb.offsetWidth; fb.classList.add('pop');
   if (i === q.c) {
     b.classList.add('right'); fb.textContent = q.ok;
-    burst(e.clientX, e.clientY, 34);
+    burst(e.clientX, e.clientY, 34); sfx.chime(); vib(25);
     document.querySelectorAll('.opt').forEach(o => o.disabled = true);
-    await wait(2200);
-    qi++;
-    if (qi < PERGUNTAS.length) {
-      const c = $('#qcard'); c.style.transition = 'opacity .5s, filter .5s'; c.classList.add('fade');
-      await wait(500); renderQ(); c.classList.remove('fade');
-    } else next();
+    await wait(2300); qi++;
+    if (qi < PERGUNTAS.length) { const c = $('#qcard'); c.classList.add('fade'); await wait(500); renderQ(); c.classList.remove('fade'); }
+    else next();
   } else {
-    b.style.animation = 'none'; b.style.opacity = 1; void b.offsetWidth;
-    b.style.animation = ''; b.classList.add('wrong'); b.disabled = true; fb.textContent = q.no;
+    b.style.animation = 'none'; b.style.opacity = 1; void b.offsetWidth; b.style.animation = '';
+    b.classList.add('wrong'); b.disabled = true; fb.textContent = q.no; sfx.wrong(); vib([20, 40, 20]);
   }
 }
 renderQ();
 
-/* revela linhas uma a uma */
-async function revealLines(scr, gap = 1900) {
-  for (const l of scr.querySelectorAll('.line')) { l.classList.add('show'); await wait(gap); }
-}
+/* linha do tempo */
+HISTORIA.forEach(h => {
+  const d = document.createElement('div');
+  d.className = 'tl-item' + (h.star ? ' star' : '');
+  d.innerHTML = `<b></b><p></p>`; d.querySelector('b').textContent = h.t; d.querySelector('p').textContent = h.d;
+  $('#timeline').append(d);
+});
+enter.timeline = async () => {
+  $('#tlbar').classList.add('go');
+  for (const it of document.querySelectorAll('.tl-item')) {
+    it.classList.add('show');
+    it.classList.contains('star') ? (sfx.magic(), vib(30)) : sfx.note(3);
+    await wait(2300);
+  }
+  showBtn(screens[cur]);
+};
 
-/* 2. shopping */
-enter.shopping = async () => { const s = screens[cur]; await revealLines(s); showBtn(s); };
+/* certeza */
+enter.certeza = async () => {
+  const s = screens[cur], lines = s.querySelectorAll('.line');
+  for (const l of lines) {
+    l.classList.add('show');
+    if (l.classList.contains('ela')) {
+      sfx.magic(); vib([30, 60, 30]);
+      const r = l.getBoundingClientRect(); setTimeout(() => burst(r.left + r.width / 2, r.top + r.height / 2, 50, 1), 500);
+      await wait(2800);
+    } else await wait(2400);
+  }
+  showBtn(s);
+};
 
-/* 3. conversas */
+/* conversas */
 enter.chat = async () => {
   const s = screens[cur], chat = $('#chat');
   for (const m of MENSAGENS) {
     const t = document.createElement('div');
     t.className = 'bubble typing'; t.innerHTML = '<i></i><i></i><i></i>';
     chat.append(t); await wait(1300);
-    t.className = 'bubble'; t.textContent = m;
-    await wait(900);
+    t.className = 'bubble'; t.textContent = m; sfx.pop(); vib(10);
+    await wait(950);
   }
   showBtn(s);
 };
 
-/* 4. paz */
+/* fotos (polaroids) */
+const stack = $('#stack');
+let photosLeft = FOTOS.length;
+FOTOS.slice().reverse().forEach((f, i) => {
+  const p = document.createElement('div');
+  const rot = (Math.random() * 10 - 5).toFixed(1);
+  p.className = 'polaroid enter'; p.dataset.rot = rot;
+  p.innerHTML = `<img src="${f.src}" alt=""><span></span>`; p.querySelector('span').textContent = f.legenda;
+  stack.append(p);
+});
+enter.photos = async () => {
+  const cards = [...stack.children];
+  for (let i = cards.length - 1; i >= 0; i--) {
+    cards[i].classList.remove('enter'); cards[i].style.transform = `rotate(${cards[i].dataset.rot}deg)`;
+    sfx.flip(); await wait(260);
+  }
+};
+function fling(p, dir) {
+  p.style.transition = 'transform .9s cubic-bezier(.2,.8,.2,1), opacity .9s';
+  p.style.transform = `translate(${dir * 520}px, -60px) rotate(${dir * 35}deg)`; p.style.opacity = 0;
+  sfx.flip(); vib(15);
+  const r = p.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, 14, .6);
+  setTimeout(() => p.remove(), 900);
+  photosLeft--;
+  if (photosLeft === 0) {
+    $('#photoHint').textContent = 'quero encher esse álbum com você 📸';
+    showBtn(screens[cur]);
+  }
+}
+stack.addEventListener('pointerdown', e => {
+  const p = stack.lastElementChild; if (!p || cur !== screens.findIndex(s => s.dataset.id === 'photos')) return;
+  const sx = e.clientX, sy = e.clientY; let dx = 0;
+  p.classList.add('dragging'); p.setPointerCapture(e.pointerId);
+  const move = ev => { dx = ev.clientX - sx; const dy = ev.clientY - sy;
+    p.style.transform = `translate(${dx}px,${dy * .3}px) rotate(${p.dataset.rot * 1 + dx / 12}deg)`; };
+  const up = () => {
+    p.removeEventListener('pointermove', move); p.removeEventListener('pointerup', up); p.removeEventListener('pointercancel', up);
+    p.classList.remove('dragging');
+    if (Math.abs(dx) > 70) fling(p, Math.sign(dx));
+    else if (Math.abs(dx) < 8) fling(p, 1);
+    else p.style.transform = `rotate(${p.dataset.rot}deg)`;
+  };
+  p.addEventListener('pointermove', move); p.addEventListener('pointerup', up); p.addEventListener('pointercancel', up);
+});
+
+/* paz */
 enter.peace = async () => {
   const s = screens[cur], lbl = $('#blabel');
-  $('#peaceIntro').classList.add('show');
-  await wait(1200);
+  $('#peaceIntro').classList.add('show'); await wait(1200);
   $('#orb').classList.add('go');
-  const say = async txt => { lbl.style.opacity = 0; lbl.style.filter = 'blur(6px)'; await wait(500);
+  const say = async txt => { lbl.style.opacity = 0; lbl.style.filter = 'blur(6px)'; await wait(450);
     lbl.textContent = txt; lbl.style.opacity = 1; lbl.style.filter = 'none'; };
-  for (let k = 0; k < 2; k++) { say('inspira…'); await wait(4000); say('solta…'); await wait(4000); }
-  say('em paz 🕊️');
-  await wait(900);
-  $('#peaceEnd').classList.add('show');
-  await wait(1500); showBtn(s);
+  for (let k = 0; k < 2; k++) {
+    say('inspira…'); tone(261.63, { d: 4, v: .04 }); tone(392, { d: 4, v: .03 }); await wait(4000);
+    say('solta…'); tone(220, { d: 4, v: .04 }); tone(329.63, { d: 4, v: .03 }); await wait(4000);
+  }
+  say('em paz 🕊️'); sfx.chime(); await wait(900);
+  $('#peaceEnd').classList.add('show'); await wait(1500); showBtn(s);
 };
 
-/* 5. motivos */
+/* segurar o coração */
+let hold = 0, holding = false, holdDone = false, lastBeat = 0, lastT = 0, holdActive = false;
+const HOLD_HINTS = ['segura… 💗', 'isso… não solta', 'tá sentindo?', 'quase…'];
+const hw = $('#holdwrap');
+hw.addEventListener('pointerdown', e => { e.preventDefault(); if (!holdDone) { holding = true; hw.setPointerCapture(e.pointerId); } });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => hw.addEventListener(ev, () => { holding = false; }));
+hw.addEventListener('contextmenu', e => e.preventDefault());
+function holdTick(t) {
+  const dt = lastT ? t - lastT : 16; lastT = t;
+  hold = holding ? Math.min(1, hold + dt / 4500) : Math.max(0, hold - dt / 1800);
+  $('#holdring').style.strokeDashoffset = 603 * (1 - hold);
+  $('#holdheart').style.transform = `scale(${1 + hold * .45})`;
+  $('#holdhint').textContent = holding ? HOLD_HINTS[Math.min(3, Math.floor(hold * 4))] : (hold > 0 ? 'segura mais um pouquinho… 🥺' : '');
+  const interval = 950 - 620 * hold;
+  if ((holding || hold > .05) && t - lastBeat > interval) {
+    lastBeat = t; sfx.beat(); vib(holding ? 35 : 0);
+    const h = $('#holdheart'); h.classList.remove('thump'); void h.getBBox(); h.classList.add('thump');
+  }
+  if (hold >= 1 && !holdDone) {
+    holdDone = true; holding = false;
+    const r = hw.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height / 2, 90, 1.5); sfx.magic(); vib([60, 40, 60, 40, 120]);
+    $('#holdhint').textContent = '';
+    $('#holdEnd').classList.add('show');
+    setTimeout(() => showBtn(screens[cur]), 2200);
+  }
+  if (holdActive && !holdDone) requestAnimationFrame(holdTick);
+  else if (holdDone) { $('#holdheart').style.transform = 'scale(1.2)'; }
+}
+enter.hold = () => { holdActive = true; requestAnimationFrame(holdTick); };
+
+/* motivos */
 let ri = -1, angle = 0;
 $('#flip').addEventListener('click', e => {
-  if (ri >= MOTIVOS.length - 1) { burst(e.clientX, e.clientY, 20); return; }
+  if (ri >= MOTIVOS.length - 1) { burst(e.clientX, e.clientY, 20); sfx.chime(); return; }
   ri++; angle += 180;
   const face = (angle / 180) % 2 ? $('#faceB') : $('#faceA');
   face.textContent = MOTIVOS[ri];
   $('#flipInner').style.transform = `rotateY(${angle}deg)`;
   $('#rcount').textContent = `${ri + 1} de ${MOTIVOS.length}`;
+  sfx.flip(); sfx.note(ri);
   setTimeout(() => burst(e.clientX, e.clientY, 14, .6), 250);
-  if (ri >= 4) $('#reasonsBtn').classList.remove('hidden');
+  if (ri >= 4) { const b = $('#reasonsBtn'); if (b.classList.contains('hidden')) { b.classList.remove('hidden'); } }
   if (ri === MOTIVOS.length - 1) $('#rcount').textContent = 'e muito, muito mais… 💗';
 });
 
-/* 6. pergunta com o "Não" fujão */
+/* dias bons e ruins */
+const seen = new Set();
+async function showDay(kind) {
+  const d = DIAS[kind], txt = $('#dayText'), ic = $('#dayIcon');
+  $('#goodBtn').classList.toggle('sel', kind === 'bom'); $('#badBtn').classList.toggle('sel', kind === 'ruim');
+  setWeather(kind === 'bom' ? 'sun' : 'rain');
+  if (kind === 'ruim') sfx.rain(); else sfx.chime();
+  txt.style.opacity = 0; txt.style.filter = 'blur(8px)'; ic.style.transform = 'scale(0) rotate(-40deg)';
+  await wait(500);
+  txt.textContent = d.txt; ic.textContent = d.icon;
+  txt.style.opacity = 1; txt.style.filter = 'none'; ic.style.transform = 'none';
+  seen.add(kind);
+  if (seen.size === 2) setTimeout(() => {
+    const b = screens[cur].querySelector('.btn.hidden[data-next]');
+    if (b) { $('#dayText').textContent += ' Em todos os momentos, eu tô com você. 💗'; showBtn(screens[cur]); }
+  }, 1800);
+}
+$('#goodBtn').onclick = () => showDay('bom');
+$('#badBtn').onclick = () => showDay('ruim');
+
+/* estrelas */
+const PTS = [];
+for (let i = 0; i < 16; i++) {
+  const t = Math.PI + (i / 16) * Math.PI * 2;
+  const x = 16 * Math.pow(Math.sin(t), 3), y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+  PTS.push([150 + x * 8.2, 125 - y * 8.2]);
+}
+const NS = 'http://www.w3.org/2000/svg';
+PTS.forEach(([x, y], i) => {
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('cx', x.toFixed(1)); c.setAttribute('cy', y.toFixed(1)); c.setAttribute('r', 3.2);
+  c.setAttribute('class', 'st' + (i === 0 ? ' next' : '')); $('#sdots').append(c);
+});
+let si = 0, starsDone = false;
+$('#sky').addEventListener('click', () => {
+  if (starsDone) return;
+  const dots = $('#sdots').children;
+  dots[si].classList.remove('next'); dots[si].classList.add('lit'); dots[si].setAttribute('r', 4.5);
+  sfx.note(si); vib(10);
+  const pts = PTS.slice(0, si + 1).map(p => p.join(',')).join(' ');
+  $('#sline').setAttribute('points', pts);
+  const rect = $('#sky').getBoundingClientRect(), sc = rect.width / 300;
+  sparkle(rect.left + PTS[si][0] * sc, rect.top + PTS[si][1] * sc);
+  si++;
+  if (si < PTS.length) dots[si].classList.add('next');
+  else {
+    starsDone = true;
+    $('#sline').setAttribute('points', pts + ' ' + PTS[0].join(','));
+    $('#spoly').setAttribute('points', pts); $('#spoly').style.opacity = 1; $('#stext').style.opacity = 1;
+    $('#starHint').style.opacity = .3;
+    sfx.magic(); vib([40, 40, 80]);
+    burst(rect.left + rect.width / 2, rect.top + rect.height * .45, 70, 1.2);
+    setTimeout(() => $('#starEnd').classList.add('show'), 1200);
+    setTimeout(() => showBtn(screens[cur]), 3200);
+  }
+});
+
+/* pergunta com o "Não" fujão */
 const no = $('#no'), yes = $('#yes'), yn = $('#yn');
 const NO_TXT = ['Tem certeza? 🥺', 'Pensa de novo…', 'Não adianta fugir 😌', 'Esse botão tá com vergonha', 'Aperta o outro 👉', 'Ok, ele desistiu 😂'];
 let escapes = 0;
 function flee(e) {
   if (e) e.preventDefault();
-  escapes++;
+  escapes++; sfx.wrong();
   const maxX = yn.clientWidth - no.offsetWidth, maxY = yn.clientHeight - no.offsetHeight;
   let x, y, tries = 0;
   do { x = Math.random() * maxX; y = Math.random() * maxY; tries++; }
   while (tries < 20 && Math.abs(x - yes.offsetLeft) < 130 && Math.abs(y - yes.offsetTop) < 60);
   no.style.left = x + 'px'; no.style.top = y + 'px';
-  const sc = Math.max(.35, 1 - escapes * .1);
-  no.style.transform = `scale(${sc})`;
+  no.style.transform = `scale(${Math.max(.35, 1 - escapes * .1)})`;
   yes.style.transform = `scale(${Math.min(1.45, 1 + escapes * .07)})`;
   $('#noMsg').textContent = NO_TXT[Math.min(escapes - 1, NO_TXT.length - 1)];
   if (escapes >= 7) no.style.opacity = 0;
@@ -521,35 +923,55 @@ function flee(e) {
 no.addEventListener('touchstart', flee, { passive: false });
 no.addEventListener('mouseenter', flee);
 no.addEventListener('click', flee);
-yes.addEventListener('click', e => {
+yes.addEventListener('click', () => {
   const r = yes.getBoundingClientRect();
-  burst(r.left + r.width / 2, r.top + r.height / 2, 70, 1.4);
+  burst(r.left + r.width / 2, r.top + r.height / 2, 70, 1.4); sfx.magic(); vib([40, 30, 80]);
   next();
 });
 
-/* 7. final */
+/* final */
 enter.final = async () => {
-  rain(70);
-  const L = $('#letter');
-  let delay = 0;
+  rainHearts(70);
+  const L = $('#letter'); let delay = 0;
   for (const par of CARTA) {
     const p = document.createElement('p');
     par.split(' ').forEach(w => {
       const s = document.createElement('span');
       s.className = 'w'; s.textContent = w; s.style.animationDelay = delay + 's';
-      p.append(s, ' '); delay += .11;
+      p.append(s, ' '); delay += .1;
     });
-    L.append(p); delay += .7;
+    L.append(p); delay += .8;
   }
   const sg = document.createElement('div');
-  sg.className = 'sign w'; sg.style.animationDelay = delay + 's'; sg.textContent = CONFIG.assinatura;
+  sg.className = 'sign w'; sg.style.animationDelay = delay + 's';
+  sg.textContent = 'Com todo o meu amor, ' + CONFIG.meuNome + ' 💗';
   L.append(sg);
-  await wait((delay + 1.2) * 1000);
-  burst(W / 2, H * .35, 60, 1.2);
-  $('#again').classList.remove('hidden');
+  // rola a tela devagar acompanhando a carta (para se ela mexer na tela)
+  const scr = screens[cur], t0 = Date.now(), total = (delay + 1) * 1000;
+  let userScrolled = false;
+  scr.addEventListener('touchstart', () => userScrolled = true, { once: true });
+  scr.addEventListener('wheel', () => userScrolled = true, { once: true });
+  const follow = setInterval(() => {
+    if (userScrolled) return clearInterval(follow);
+    const k = Math.min(1, (Date.now() - t0) / total);
+    scr.scrollTo({ top: (scr.scrollHeight - scr.clientHeight) * k, behavior: 'smooth' });
+    if (k >= 1) clearInterval(follow);
+  }, 800);
+  await wait((delay + 1.3) * 1000);
+  sfx.chime();
+  $('#promise').classList.remove('hidden');
 };
+$('#promise').addEventListener('click', async e => {
+  const b = $('#promise'); b.classList.add('hidden');
+  for (let i = 0; i < 6; i++) { firework(W * (.2 + Math.random() * .6), H * (.15 + Math.random() * .35)); await wait(450); }
+  rainHearts(90); sfx.magic();
+  const f = $('#forever'); f.textContent = '';
+  'Promessa guardada. Pra sempre. ♾️'.split(' ').forEach((w, i) => {
+    const s = document.createElement('span'); s.className = 'w'; s.textContent = w; s.style.animationDelay = i * .35 + 's'; f.append(s, ' ');
+  });
+  setTimeout(() => { $('#again').classList.remove('hidden'); f.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 1800);
+});
 $('#again').addEventListener('click', () => location.reload());
-document.addEventListener('dblclick', e => burst(e.clientX, e.clientY, 30));
 </script>
 </body>
 </html>
